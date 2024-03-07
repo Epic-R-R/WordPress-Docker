@@ -1,0 +1,90 @@
+# Define Docker Compose file version
+version: "1.0"
+
+# Define services for the application
+services:
+  database:
+    # Limit memory usage to 2048 MB
+    mem_limit: 2048m
+    # Use MariaDB image version 10.6.4-focal
+    image: mariadb:10.6.4-focal
+    # Restart the container unless explicitly stopped
+    restart: unless-stopped
+    # Map host port 3306 to container port 3306
+    ports:
+      - 3306:3306
+    # Load environment variables from .env file
+    env_file: .env
+    # Set environment variables for MariaDB
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    # Mount a volume for persistent data storage
+    volumes:
+      - db-data:/var/lib/mysql
+    # Connect to the custom network
+    networks:
+      - wordpress-network
+
+  # phpMyAdmin service
+  phpmyadmin:
+    # Depend on the database service
+    depends_on:
+      - database
+    # Use phpMyAdmin
+    image: phpmyadmin/phpmyadmin
+    # Restart the container unless explicitly stopped
+    restart: unless-stopped
+    # Map host port 8081 to container port 80
+    ports:
+      - 8081:80
+    # Load environment variables from .env file
+    env_file: .env
+    # Set environment variables for phpMyAdmin
+    environment:
+      PMA_HOST: database
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    # Connect to the custom network named wordpress-network
+    networks:
+      - wordpress-network
+
+  # WordPress service
+  wordpress:
+    # Depend on the database service
+    depends_on:
+      - database
+    # Use WordPress image with Apache server (version 6.2.2)
+    image: wordpress:6.2.2-apache
+    # Restart the container unless explicitly stopped
+    restart: unless-stopped
+    # Map host port 8080 to container port 80
+    ports:
+      - 8080:80
+    # Load environmet variables from .env file
+    env_file: .env
+    # Set environment variables for WordPress
+    environment:
+      WORDPRESS_DB_HOST: database:3306
+      WORDPRESS_DB_NAME: "${MYSQL_DATABASE}"
+      WORDPRESS_DB_USER: "${MYSQL_USER}"
+      WORDPRESS_DB_PASSWORD: "${MYSQL_PASSWORD}"
+    # Mount the current directory as a volume for WordPress
+    volumes:
+      - ./:/var/www/html
+    # Connect to the custom netword
+    networks:
+      - wordpress-network
+
+# Define named volumes
+volumes:
+  # Database data volume
+  db-data:
+
+# Define custom bridge network
+networks:
+  wordpress-network:
+    driver: bridge
